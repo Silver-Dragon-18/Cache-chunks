@@ -22,6 +22,9 @@ import {
 import { blockBelow, blockAt } from "./geom.js";
 import { feedback, burst } from "./markers.js";
 
+/** Ticks within which an onUse must be followed by its onCompleteUse. */
+const TAP_WINDOW_TICKS = 20;
+
 const PLAYER_SOURCE = "stasispivot:p_source";
 
 function normalize(source) {
@@ -187,10 +190,17 @@ export class PivotManager {
     this.taps.set(player.id, { armedAt: system.currentTick });
   }
 
+  /**
+   * True when `markTap` armed a tap recently enough to explain a completed use.
+   * A stale arm (a use that never completed, or a tap that fell through) must
+   * not swallow a later gesture, so the window is short — the same order as one
+   * press of the pivot item.
+   */
   consumeTap(player) {
-    if (!this.taps.has(player.id)) return false;
+    const armed = this.taps.get(player.id);
+    if (!armed) return false;
     this.taps.delete(player.id);
-    return true;
+    return system.currentTick - armed.armedAt <= TAP_WINDOW_TICKS;
   }
 
   /** Entry point for the item, the keybind and the commands. */
