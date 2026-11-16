@@ -137,5 +137,19 @@ Four details cost real debugging time and are worth keeping:
    symbols, so `tools/verify_so.py` walks the GNU hash the way `dlsym` does
    before a build is accepted.
 
-The result still needs a device test: this path proves the ELF is well formed
-and resolvable, not that the Mod Menu renders.
+What is proven on a host, and what is not:
+
+| Proven | How |
+| --- | --- |
+| The ELF is AArch64, bionic-linkable, 16 KiB pages | `tools/verify_so.py` |
+| Every export resolves through the hash table | same, GNU-hash emulation |
+| The lifecycle works: load, enable, frames, clear, toggle, keybind, disable, unload, reload | `tests/mod_lifecycle_test.cpp` |
+| No data races on the polling thread | the same test under ThreadSanitizer |
+| Overlay JSON parsing rejects hostile input | `tests/json_reader_test.cpp` |
+| The script pack's maths and layout | `tests/layout_test.mjs` |
+
+| Not proven | Why |
+| --- | --- |
+| That LeviLauncher loads this specific `.so` | needs a device; the ABI/format checks above are the closest proxy |
+| That the Mod Menu draws the frame as intended | needs a device |
+| That Minecraft's script host can hand a frame to a native mod at all | no such API exists in 1.26.60; see the mailbox note above |

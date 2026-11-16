@@ -89,6 +89,8 @@ struct DrawCommand {
 
 class JsonReader {
 public:
+    // Takes a string_view because the caller keeps the buffer alive; never pass
+    // a temporary (see poll(), which binds the file contents to a local first).
     explicit JsonReader(std::string_view input) : mInput(input) {}
 
     bool readCommands(std::vector<DrawCommand> &out) {
@@ -365,8 +367,7 @@ public:
             logWarn("Mod Menu module registration failed");
             return false;
         }
-        mEnabled.store(true, std::memory_order_relaxed);
-        startWorker(context);
+        startWorker();
         return true;
     }
 
@@ -391,8 +392,12 @@ private:
                                .defaultEnabled(true)
                                .hideInHudEditor(false)
                                .onToggle([this](std::string_view, bool enabled) {
-                                   mEnabled.store(enabled, std::memory_order_relaxed);
-                                   if (!enabled) publish({});
+                                   if (enabled) {
+                                       startWorker();
+                                       return;
+                                   }
+                                   stopWorker();
+                                   publish({});
                                })
                                .onKeybind([this](std::string_view, std::string_view key, bool isDown) {
                                    if (!isDown) return;
@@ -411,9 +416,17 @@ private:
         return builder.registerModule();
     }
 
-    void startWorker(pl::mod::ModContext &context) {
-        mDrawPath = context.dataDir() / "overlay.json";
-        mClearPath = context.dataDir() / "clear";
+    /// Starts the polling thread. Safe to call repeatedly: any finished thread
+    /// is reaped first, so a Mod Menu toggle off/on cycle resumes drawing
+    /// instead of leaving a dead thread behind.
+    void startWorker() {
+        stopWorker();
+        if (mDataDir.empty()) return;
+        mDrawPath = mDataDir / "overlay.json";
+        mClearPath = mDataDir / "clear";
+        mLastStamp = std::filesystem::file_time_type{};
+        mHasFrame = false;
+        mEnabled.store(true, std::memory_order_relaxed);
         mThread = std::thread([this] {
             while (mEnabled.load(std::memory_order_relaxed)) {
                 poll();
@@ -422,26 +435,34 @@ private:
         });
     }
 
+    /// Stops the polling loop and waits for it. Clear the flag *before*
+    /// joining: a join on a still-running loop would block forever.
     void stopWorker() {
+        mEnabled.store(false, std::memory_order_relaxed);
         if (mThread.joinable()) mThread.join();
     }
 
     void poll() {
         std::error_code error;
+        // exists() sets `error` when the file is simply absent, so the result
+        // has to be inspected before the code is reset.
         const bool clearRequested = std::filesystem::exists(mClearPath, error);
         if (clearRequested) {
+            error.clear();
             std::filesystem::remove(mClearPath, error);
-            if (mHasFrame) {
-                mHasFrame = false;
-                publish({});
-            }
+            // Always publish the blank frame: the overlay may still be showing
+            // a frame from a previous session.
+            mHasFrame = false;
+            mLastStamp = std::filesystem::file_time_type{};
+            publish({});
             return;
         }
 
         // Avoid touching the file unless the pack rewrote it.
+        error.clear();
         const auto stamp = std::filesystem::last_write_time(mDrawPath, error);
-        if (!error && stamp == mLastStamp) return;
         if (error) return;
+        if (stamp == mLastStamp) return;
 
         std::ifstream stream(mDrawPath, std::ios::binary);
         if (!stream) return;
@@ -449,8 +470,12 @@ private:
         buffer << stream.rdbuf();
         mLastStamp = stamp;
 
+        // Bind the contents to a local: JsonReader borrows a string_view, and
+        // passing buffer.str() directly leaves the reader pointing at a
+        // temporary that dies before readCommands() runs.
+        const std::string contents = buffer.str();
         std::vector<DrawCommand> commands;
-        JsonReader reader(buffer.str());
+        JsonReader reader(contents);
         if (!reader.readCommands(commands)) {
             logWarn("discarding malformed overlay file");
             return;

@@ -225,6 +225,8 @@ scripts/check.sh              runs every check in one go
 scripts/build_ndk_less.sh     builds the arm64 .so without the Android NDK
 tests/layout_test.mjs         host tests: maths, layout, colours, config
 tests/json_reader_test.cpp    host tests: companion overlay JSON reader
+tests/mod_lifecycle_test.cpp  host tests: runs the companion against a stubbed
+                              Mod Menu (load/enable/frames/toggle/keybind/unload)
 ```
 
 ### Development
@@ -235,9 +237,18 @@ python3 tools/package.py --check   # validation only
 node tests/layout_test.mjs         # script maths/layout only
 ```
 
-Host tests run without Minecraft: the measured maths, panel layout and colour
-mapping live in modules with no engine imports, which is what makes them
-testable and keeps them from drifting.
+Host tests run without Minecraft. Two things make that possible:
+
+* the measured maths, panel layout and colour mapping live in modules with no
+  engine imports, so a plain `node` run exercises them;
+* `tests/stubs/pl/` is a recording stand-in for the Preloader API, so the native
+  mod can be *run* on a PC — the lifecycle test drives load → enable → overlay
+  frames → toggle → keybind → disable → unload and asserts on what the mod hands
+  to the Mod Menu. It also runs under ThreadSanitizer, because the mod polls
+  files on its own thread.
+
+Both are checked in CI, so a regression in the native half fails the build
+rather than showing up on a phone.
 
 ---
 

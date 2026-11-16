@@ -67,6 +67,33 @@ struct HudSurfaceSize {
 
 bool registerModule(const ModuleInfo &info);
 void unregisterModule(std::string_view moduleId);
+
+/// Recording hooks for tests: what the mod actually submitted.
+///
+/// A mod's draw submissions arrive on its own worker thread, so the recorder is
+/// guarded by a mutex; `snapshot()` is what tests should read.
+namespace test {
+struct Recorder {
+  bool moduleRegistered{};
+  bool moduleUnregistered{};
+  std::string moduleId;
+  std::string moduleName;
+  std::string moduleModId;
+  bool defaultEnabled{};
+  std::vector<ConfigEntry> configs;
+  std::vector<DrawCommand> lastFrame;
+  int submittedFrames{};
+  std::vector<std::string> toggles;
+  std::vector<std::pair<std::string, bool>> keybinds;
+};
+Recorder &recorder();
+Recorder snapshot();
+void reset();
+/// The module the mod registered, kept alive so tests can fire its callbacks.
+extern ModuleInfo g_held;
+bool fireToggle(bool enabled);
+bool fireKeybind(const std::string &key, bool isDown);
+} // namespace test
 bool setConfigSchemaJson(std::string_view moduleId, std::string_view schemaJson);
 void clearConfigSchema(std::string_view moduleId);
 void submitDrawCommands(std::string_view moduleId, std::span<const DrawCommand> commands);
