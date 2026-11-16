@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "title": "Stasis Pivot companion",
+  "properties": {
+    "version": { "type": "integer", "default": 1, "readOnly": true },
+    "moduleId": {
+      "type": "string",
+      "title": "Overlay module id",
+      "description": "Mod Menu module that receives the panel draw commands.",
+      "default": "stasispivot_hud"
+    },
+    "clearPath": {
+      "type": "string",
+      "title": "Clear file",
+      "description": "Relative file written by the script pack to clear the overlay.",
+      "default": "clear"
+    },
+    "drawPath": {
+      "type": "string",
+      "title": "Draw file",
+      "description": "Relative file the script pack writes with the panel draw commands.",
+      "default": "draw"
+    }
+  }
+}

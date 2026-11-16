@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "moduleId": "stasispivot_hud",
+  "clearPath": "clear",
+  "drawPath": "draw"
+}

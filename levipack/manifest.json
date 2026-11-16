@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "type": "preload-native",
+  "id": "stasis_pivot",
+  "name": "Stasis Pivot",
+  "author": "arena/6c7755de",
+  "version": "1.0.0",
+  "description": "LeviLauncher companion for the StasisPivot pack: draws the outlined X Y Z S panel through the Mod Menu HUD overlay and mirrors the optional keybind.",
+  "entry": "libstasis_pivot.so",
+  "icon": "icon.png",
+  "minecraft_versions": [
+    "1.26.*"
+  ]
+}

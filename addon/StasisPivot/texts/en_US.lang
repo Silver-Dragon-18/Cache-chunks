@@ -1,0 +1,4 @@
+pack.stasispivot.name=StasisPivot
+pack.stasispivot.description=Anchor a source block, then read your X Y Z S coordinates against it with a customisable outlined panel.
+item.stasispivot:pivot=Stasis Pivot
+item.stasispivot:pivot.name=Stasis Pivot

@@ -1,0 +1,32 @@
+{
+  "format_version": "1.26.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "stasispivot:pivot",
+      "menu_category": {
+        "category": "items",
+        "is_hidden_in_commands": false
+      }
+    },
+    "components": {
+      "minecraft:icon": "stasis_pivot",
+      "minecraft:display_name": {
+        "value": "Stasis Pivot"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:use_modifiers": {
+        "use_duration": 0.5,
+        "movement_modifier": 1.0
+      },
+      "minecraft:interact_button": true,
+      "minecraft:glint": true,
+      "minecraft:rarity": "rare",
+      "minecraft:hover_text_color": "aqua",
+      "minecraft:keep_on_death": {},
+      "minecraft:custom_components": [
+        "stasispivot:on_use_pivot"
+      ],
+      "minecraft:use_animation": "none"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Build output
+dist/
+build/
+build-*/
+out/
+.venv/
+
+# Compiled native artefacts: the arm64 .so is built by
+# scripts/build_ndk_less.sh or .github/workflows/build.yml, never committed.
+*.so
+*.o
+*.levipack
+*.mcpack
+*.mcaddon
+
+# Tooling caches
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Vendored SDK checkout metadata (headers are committed on purpose)
+vendor/preloader-android/.git/

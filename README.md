@@ -1,1 +1,296 @@
-# Cache-chunks
+# StasisPivot
+
+A Minecraft **Bedrock 1.26.60+** mod for LeviLauncher that turns any block into a
+measurement origin ("the source"). Tap once, and a hologram-style marker is
+placed under your feet; from then on a custom outlined coordinate panel shows
+the source's **X Y Z** plus **S**, your straight-line distance from it, exactly
+like a customised version of the vanilla coordinate readout.
+
+```
+┌──────────────────────────────┐
+│ STASIS PIVOT   120 64 -8     │
+│ X 120   Y 64   Z -8   S 13.00│
+│ dX +3.00  dY +4.00  dZ +12.00│
+└──────────────────────────────┘
+```
+
+Everything in the frame is configurable: outline colour, thickness and corner
+radius, background colour and transparency, and the colour of every value.
+
+---
+
+## What you get
+
+| Feature | Where it lives |
+| --- | --- |
+| Tap-to-place source block, stored per player and per dimension | `addon/StasisPivot/scripts/pivot.js` |
+| Custom X Y Z S coordinate panel with a rounded, coloured outline | `scripts/layout.js`, `scripts/hud.js` |
+| Particle "hologram" column + locator-bar waypoint on the source | `scripts/markers.js`, `addon/StasisPivotRP/particles/` |
+| Full settings menu (toggles, sliders, colour picker, keybind) | `scripts/menu.js`, `scripts/config.js` |
+| Mod-hide / master toggle, optional keybind | `config.js` (`enabled`, `keybind_keycode`) |
+| LeviLauncher native companion (HUD overlay renderer + keybind) | `levipack/`, `CMakeLists.txt` |
+
+Tap the item, press the keybind, run `/stasispivot set`, or use
+**Mod Menu → Stasis Pivot → Set source here** — all four paths place the source
+and the panel appears immediately.
+
+### The optional keybind
+
+Bedrock scripting only reports two input buttons, so the script-level keybind
+uses one of those rather than pretending to capture arbitrary keys:
+
+* **Sneak / Shift** (default) or **Jump** — enable it at *Keybind → Enable
+  button bind*, pick the button, then press **and release** it without moving.
+* The gesture is strict on purpose: releasing after 600 ms, or moving more than
+  0.35 blocks while holding, cancels it, so walking/sprinting/jumping normally
+  never places a source.
+* If you have the native companion, its *Keybind* control captures a real
+  Android key code instead; set the same number in *Keybind → Android key code*
+  so the pack picks the press up too.
+
+---
+
+## Install
+
+### 1. The mod itself (works on any Bedrock 1.26.60+ install)
+
+`dist/StasisPivot.mcaddon` contains both packs. Either open the file (Minecraft
+or LeviLauncher can import it), or copy the folders:
+
+```
+com.mojang/behavior_packs/StasisPivot/      <- addon/StasisPivot/
+com.mojang/resource_packs/StasisPivotRP/    <- addon/StasisPivotRP/
+```
+
+Then, **per world**: Settings → Add-Ons → activate **StasisPivot** (the
+resource pack comes along as a dependency) and enable **Beta APIs** if your
+build asks for it. No other experiment is required.
+
+The pack declares `min_engine_version 1.26.60` and depends on
+`@minecraft/server 2.10.0` + `@minecraft/server-ui 2.1.0`, the stable script
+versions that ship with 1.26.60. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)
+for the version matrix and for the fallbacks that keep it working on 1.26.43+.
+
+### 2. The Lev Menu integration (LeviLauncher native companion)
+
+`.levipack` packages on LeviLauncher are **native-only**: the launcher accepts a
+manifest of `type: "preload-native"` plus exactly one `.so`
+(`ModManager.parseDirectoryMod`), so the menu entry, the toggle and the keybind
+need a native library. That library is `levipack/src/StasisPivot.cpp`:
+
+* it registers a **Mod Menu module** (`stasispivot_hud`) with
+  * a **toggle** that hides/shows the whole mod (the "mod-hide" switch),
+  * a **Keybind** control whose captured Android key code is forwarded to the
+    pack through the `trigger` file (see below),
+  * sliders for panel scale and screen position;
+* it converts a panel frame into `pl::modmenu::DrawCommand` primitives and
+  submits them, which is the only way to get a **true rounded outline,
+  arbitrary `#RRGGBB` colours and alpha** in the Levi HUD instead of the
+  §-code approximation.
+
+> **Read this before expecting the overlay.** Bedrock's script API has no
+> filesystem access, so the pack cannot hand a frame to a native mod by itself.
+> The companion reads `data/overlay.json` and polls `data/trigger` only when a
+> **host bridge** writes those files (that is what `scripts/levi.js`'s
+> `globalThis.StasisPivotBindOverlay` hook and the mailbox constants describe).
+> On a stock Minecraft install nothing writes them, the companion stays idle,
+> and the pack's action-bar panel is what you see. The Mod Menu toggle/keybind
+> and the overlay renderer are therefore opt-in infrastructure: correct and
+> tested, but inert until Minecraft or a launcher exposes a script↔native
+> bridge. Everything the mod *promises* — source block, X Y Z S, outlined
+> customisable panel, toggle, keybind — works today without it.
+
+Build it with the official NDK (about a 1 GB download):
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android-ndk-r28
+cmake -B build -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+  -DANDROID_STL=c++_shared -DCMAKE_BUILD_TYPE=Release
+cmake --build build          # -> build/libstasis_pivot.so
+```
+
+Or build it **without the NDK**, which is what CI does and what works when
+`dl.google.com` is blocked (that download is the only thing standing between a
+clean runner and a `.so`):
+
+```bash
+./scripts/build_ndk_less.sh
+#   -> dist/native/libstasis_pivot.so (arm64-v8a, verified loadable)
+python3 tools/make_levipack.py dist/native/libstasis_pivot.so
+#   -> dist/StasisPivot-1.0.0-arm64-v8a.levipack
+```
+
+That path pulls a compiler (Zig, via PyPI) and real bionic headers (from
+`github.com/gubaojian/sysroot`), compiles with `-target aarch64-linux-android
+-D__ANDROID_API__=26`, and links `cxx_shared` style against `libc++_shared.so`
+the same way the NDK's `c++_shared` STL does. Two extra tools finish the job:
+
+* `tools/elf_fixup.py` rewrites the leftover desktop sonames to bionic ones,
+  drops glibc symbol versioning and re-aligns segments to 16 KiB.
+* `tools/verify_so.py` reproduces what bionic's `dlsym` does — GNU hash
+  lookup of `PLGetModRegistration`, `DT_NEEDED` sanity, a check for glibc-only
+  imports such as `__xstat`, and the 16 KiB alignment rule.
+
+Then install: LeviLauncher → Mods → Add Mod → pick the `.levipack`.
+
+> Without the companion the mod is still fully functional: the panel is drawn
+> through the action bar and the toggle/keybind live in the in-game menu
+> (`/stasispivot menu`). The companion adds the native Mod Menu surface.
+
+---
+
+## Using it
+
+1. Craft or grab **Stasis Pivot** (Creative → Items) or run `/give @s stasispivot:pivot`.
+2. **Tap** while holding it (a short press, without dragging the screen — or
+   press your keybind / run `/stasispivot set`):
+   the source block becomes the block under your feet, and `X Y Z` in the panel
+   is that block — it *is* the `0 0 0` of the measurement, so `dX dY dZ` is
+   always your offset from it and `S` is the distance.
+3. Walk away and watch the panel update 5× per second.
+4. Tap again to move the source (or turn off "Set source only once" in the menu
+   if you prefer to place once and keep it).
+
+| Command | Permission | Cheats | What it does |
+| --- | --- | --- | --- |
+| `/stasispivot:set` | any player | not required | set the source to the block below you |
+| `/stasispivot:menu` | any player | not required | open the settings menu |
+| `/stasispivot:clear` | any player | not required | forget the source |
+
+Minecraft registers the namespaced command and an un-namespaced alias, so
+`/stasispivot set` works in chat too.
+
+### Settings
+
+All settings exist in three places and stay in sync (they are one value in the
+world's dynamic properties):
+
+* **Levi Mod Menu** (native companion) — toggle, keybind, scale/position.
+* **In-game menu** — `/stasispivot menu`, every key below.
+* **Dynamic properties** — `stasispivot:settings` (JSON), for backups.
+
+| Group | Keys |
+| --- | --- |
+| Mod | `enabled`, `persist_source`, `auto_snap`, `pivot_on_every_tap`, `remember_dimension` |
+| Panel | `hud_enabled`, `hud_always`, `hud_max_distance`, `hud_scale`, `hud_offset_x`, `hud_offset_y`, `hud_show_header`, `hud_show_distance`, `hud_show_delta`, `hud_outline_width`, `hud_corner_radius`, `hud_actionbar`, `hud_actionbar_stacked` |
+| Colours | `hud_outline_color`, `hud_outline_alpha`, `hud_bg_color`, `hud_bg_alpha`, `hud_color_x`, `hud_color_y`, `hud_color_z`, `hud_color_s`, `hud_color_delta`, `hud_color_text`, `hud_color_header` |
+| World | `beam_enabled`, `waypoint_enabled`, `waypoint_color`, `waypoint_texture`, `chat_feedback`, `tap_sound` |
+| Keybind | `keybind_enabled`, `keybind_button` (`Sneak`/`Jump`), `keybind_keycode` (Android key code, `0` = none) |
+
+Colours are stored as `#RRGGBB`, the same format the Levi colour controls and
+the in-game hex field use. The panel's §-code fallback is picked automatically
+as the closest match.
+
+---
+
+## How the pieces talk
+
+```
+ addon/StasisPivot (script pack)                  levipack (native companion)
+ ──────────────────────────────                  ────────────────────────────
+ pivot.js  ── source ──►  layout.js ── frame ──► data/overlay.json
+                            │                        │
+                            │                        ▼
+                    hud.js (action bar)      StasisPivot.cpp JsonReader
+                                                     │
+                                                     ▼
+                                        pl::modmenu::submitDrawCommands
+```
+
+* `layout.js` produces the frame once and both transports consume it: the
+  action bar (`toActionBar`, always available) and the overlay command list
+  (`toOverlayCommands`). `levi.js` forwards the latter to whatever transport is
+  bound, and degrades to a no-op when nothing is.
+* The companion implements the mailbox half (`overlay.json`, `clear`,
+  `trigger`) for hosts that can write it; see the note above. The pack still
+  handles a hardware key through its own `keybind_keycode` setting, so the
+  "optional keybind" requirement does not depend on the bridge.
+
+---
+
+## Repository layout
+
+```
+addon/StasisPivot/            behaviour pack (manifest, scripts/, items/, texts/)
+addon/StasisPivotRP/          resource pack (particles/, textures/, item atlas)
+levipack/                     native companion (manifest, config, C++ source)
+vendor/preloader-android/     vendored Preloader headers (MIT, LiteLDev)
+tools/make_textures.py        procedural PNG generation (stdlib only)
+tools/package.py              validation + .mcaddon/.mcpack builds
+tools/make_levipack.py        builds the .levipack from a compiled .so
+tools/elf_fixup.py            makes a cross-built .so bionic-loadable
+tools/verify_so.py            emulates bionic dlsym to prove it will load
+scripts/check.sh              runs every check in one go
+scripts/build_ndk_less.sh     builds the arm64 .so without the Android NDK
+tests/layout_test.mjs         host tests: maths, layout, colours, config
+tests/json_reader_test.cpp    host tests: companion overlay JSON reader
+tests/mod_lifecycle_test.cpp  host tests: runs the companion against a stubbed
+                              Mod Menu (load/enable/frames/toggle/keybind/unload)
+```
+
+### Development
+
+```bash
+./scripts/check.sh                 # tests + pack validation + packaging
+python3 tools/package.py --check   # validation only
+node tests/layout_test.mjs         # script maths/layout only
+```
+
+Host tests run without Minecraft. Two things make that possible:
+
+* the measured maths, panel layout and colour mapping live in modules with no
+  engine imports, so a plain `node` run exercises them;
+* `tests/stubs/pl/` is a recording stand-in for the Preloader API, so the native
+  mod can be *run* on a PC — the lifecycle test drives load → enable → overlay
+  frames → toggle → keybind → disable → unload and asserts on what the mod hands
+  to the Mod Menu. It also runs under ThreadSanitizer, because the mod polls
+  files on its own thread.
+
+Both are checked in CI, so a regression in the native half fails the build
+rather than showing up on a phone.
+
+---
+
+## How this was tested on a host
+
+The pack is not only typechecked: `tests/mock/` contains a recording
+stand-in for `@minecraft/server` and `@minecraft/server-ui`, and a Node
+resolve hook maps the real import names onto it. `tests/behaviour_test.mjs`
+then loads the **unmodified** `addon/StasisPivot/scripts/main.js` and drives it
+the way the engine does — fire `startup`, spawn a player, use the item, release
+it, advance the tick loop — asserting on what the pack recorded: the registered
+item component and commands, the chat line, the panel text, the particles, the
+waypoint, and the stored dynamic properties.
+
+That harness is how the gesture bugs below were found, because the mock refuses
+to be lenient: a missing event is a missing event.
+
+```bash
+node tests/behaviour_test.mjs      # 29 behaviour tests
+scripts/check.sh                   # everything: scripts, behaviour, native
+```
+
+## Limits worth knowing
+
+* **Bedrock cannot draw rectangles in normal text.** On a vanilla client the
+  outline is drawn with box-drawing characters and § colours; the true
+  rounded/alpha outline is the Levi overlay renderer in the companion mod.
+* **Touch "tap" detection.** A custom component sees no input events, and
+  `onUse` fires for the touch that drags the camera as well, so the pack
+  brackets the gesture itself: `onUse` records the tick, the position and the
+  view, and `itemStopUse` accepts it only if it lasted at most 12 ticks, the
+  player stayed within 0.35 blocks, the camera turned no more than 12°, and the
+  release did not land on a block or a mob. Dragging to look around is
+  therefore a look, not a placement — the "look, don't place" behaviour.
+* **Keybind reach.** `playerButtonInput` reports `Jump` and `Sneak` only; a
+  general "press key K" binding needs the native companion's Keybind control.
+  The script-level bind is the part that works on a stock client.
+* **No blocks are placed.** The source is virtual: nothing is written to the
+  world, so it cannot be lost, griefed or left behind.
+* **One pivot per player per dimension** while "Per-dimension source" is on.
+
+## License
+
+MIT. Preloader headers under `vendor/` are MIT, © LiteLDev.

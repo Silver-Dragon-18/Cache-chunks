@@ -1,0 +1,45 @@
+{
+  "format_version": 3,
+  "header": {
+    "name": "pack.stasispivot.name",
+    "description": "pack.stasispivot.description",
+    "uuid": "8e8e1b41-4630-4fff-8d8c-e93911ed47e0",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.60"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "c4a55d23-450a-4cb3-afff-d20ae021e4bb",
+      "version": "1.0.0"
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "3dd082dc-bb44-4d2f-b093-4f6e41303b42",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.10.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.1.0"
+    },
+    {
+      "uuid": "da188635-962b-4341-ad61-c4d3ab6dc855",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": ["arena/6c7755de"],
+    "product_type": "addon",
+    "generated_with": {
+      "stasis_pivot_levipack": ["1.0.0"]
+    }
+  }
+}
