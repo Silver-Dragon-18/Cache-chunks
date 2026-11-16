@@ -13,6 +13,12 @@
 // It never patches libminecraftpe.so, so it keeps working across 1.26.x game
 // updates as long as the Preloader (pl::) ABI does.
 
+// pl/Mod.hpp includes pl/Logger.hpp, which includes <fmt/format.h>. The
+// Preloader links fmt for its own logging, but a native mod is a separate
+// library and does not get it, and this mod never calls the templated logger
+// (it logs through logcat). levipack/src/fmt_shim is put on the include path
+// ahead of everything else, so <fmt/format.h> resolves to a declarations-only
+// stand-in there (see that file for the rules).
 #include <pl/Mod.hpp>
 #include <pl/ModMenu.hpp>
 #include <pl/ModMenuConfig.hpp>
@@ -43,8 +49,8 @@ constexpr int kMaxCommands = 512;
 constexpr float kMaxCoordinate = 100000.0f;
 constexpr std::chrono::milliseconds kPollInterval{40};
 
-// The pl:: Logger is header-only and formats through libfmt, which is not part
-// of the shipped library; the companion logs through logcat directly.
+// pl::log::Logger is header-only and formats through libfmt, which a native mod
+// does not link; logging goes straight to logcat (the same sink) instead.
 void logInfo(const char *format, ...) {
     va_list args;
     va_start(args, format);

@@ -100,8 +100,7 @@ need a native library. That library is `levipack/src/StasisPivot.cpp`:
 > bridge. Everything the mod *promises* — source block, X Y Z S, outlined
 > customisable panel, toggle, keybind — works today without it.
 
-Build it (CI does this automatically on every push, see
-`.github/workflows/build.yml`):
+Build it with the official NDK (about a 1 GB download):
 
 ```bash
 export ANDROID_NDK_HOME=/path/to/android-ndk-r28
@@ -112,9 +111,29 @@ cmake -B build -G Ninja \
 cmake --build build          # -> build/libstasis_pivot.so
 ```
 
-Package and install the `.levipack` by zipping the folder exactly as laid out in
-`dist/levipack/` (the build step above drops `libstasis_pivot.so` next to
-`manifest.json`), then LeviLauncher → Mods → Add Mod → pick the `.levipack`.
+Or build it **without the NDK**, which is what CI does and what works when
+`dl.google.com` is blocked (that download is the only thing standing between a
+clean runner and a `.so`):
+
+```bash
+./scripts/build_ndk_less.sh
+#   -> dist/native/libstasis_pivot.so (arm64-v8a, verified loadable)
+python3 tools/make_levipack.py dist/native/libstasis_pivot.so
+#   -> dist/StasisPivot-1.0.0-arm64-v8a.levipack
+```
+
+That path pulls a compiler (Zig, via PyPI) and real bionic headers (from
+`github.com/gubaojian/sysroot`), compiles with `-target aarch64-linux-android
+-D__ANDROID_API__=26`, and links `cxx_shared` style against `libc++_shared.so`
+the same way the NDK's `c++_shared` STL does. Two extra tools finish the job:
+
+* `tools/elf_fixup.py` rewrites the leftover desktop sonames to bionic ones,
+  drops glibc symbol versioning and re-aligns segments to 16 KiB.
+* `tools/verify_so.py` reproduces what bionic's `dlsym` does — GNU hash
+  lookup of `PLGetModRegistration`, `DT_NEEDED` sanity, a check for glibc-only
+  imports such as `__xstat`, and the 16 KiB alignment rule.
+
+Then install: LeviLauncher → Mods → Add Mod → pick the `.levipack`.
 
 > Without the companion the mod is still fully functional: the panel is drawn
 > through the action bar and the toggle/keybind live in the in-game menu
@@ -199,7 +218,11 @@ levipack/                     native companion (manifest, config, C++ source)
 vendor/preloader-android/     vendored Preloader headers (MIT, LiteLDev)
 tools/make_textures.py        procedural PNG generation (stdlib only)
 tools/package.py              validation + .mcaddon/.mcpack builds
+tools/make_levipack.py        builds the .levipack from a compiled .so
+tools/elf_fixup.py            makes a cross-built .so bionic-loadable
+tools/verify_so.py            emulates bionic dlsym to prove it will load
 scripts/check.sh              runs every check in one go
+scripts/build_ndk_less.sh     builds the arm64 .so without the Android NDK
 tests/layout_test.mjs         host tests: maths, layout, colours, config
 tests/json_reader_test.cpp    host tests: companion overlay JSON reader
 ```

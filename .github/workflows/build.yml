@@ -19,6 +19,19 @@ jobs:
       - name: Run every host check
         run: ./scripts/check.sh
 
+      - name: Set up a Python environment for the native build
+        run: python3 -m venv .venv
+
+      - name: Build the native companion without the NDK
+        # Same compiler/sysroot path as scripts/build_ndk_less.sh, so a broken
+        # or missing dl.google.com does not stop the .so from being built.
+        env:
+          STASIS_PIVOT_WORK: ${{ runner.temp }}/stasis-pivot-build
+        run: ./scripts/build_ndk_less.sh
+
+      - name: Assemble the levipack from the local build
+        run: python3 tools/make_levipack.py dist/native/libstasis_pivot.so --out dist/pkg
+
       - name: Upload packs
         uses: actions/upload-artifact@v4
         with:
@@ -27,12 +40,18 @@ jobs:
             dist/StasisPivot.mcaddon
             dist/StasisPivot-BP.mcpack
             dist/StasisPivot-RP.mcpack
+            dist/pkg/*.levipack
           if-no-files-found: error
 
   android:
-    name: Native companion (arm64-v8a)
+    name: Native companion (official NDK, arm64-v8a)
     runs-on: ubuntu-latest
     needs: checks
+    # The NDK download comes from dl.google.com. When that is unreachable the
+    # `checks` job has already produced a verified levipack through
+    # scripts/build_ndk_less.sh, so this job is allowed to fail without
+    # blocking the build.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 

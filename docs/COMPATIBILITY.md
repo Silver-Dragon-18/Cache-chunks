@@ -104,3 +104,38 @@ The action-bar panel and the in-game menu are therefore not a fallback that
 should be deleted once the bridge exists: they are the only path that works on
 a stock client, and they exercise the same `layout.js` code the overlay does, so
 the two cannot drift apart.
+
+## Building the native half without the Android NDK
+
+The official NDK lives on `dl.google.com`, which is not reachable from every
+sandbox or CI runner. `scripts/build_ndk_less.sh` produces an equivalent
+arm64-v8a library from reachable pieces:
+
+| Piece | Source | Why |
+| --- | --- | --- |
+| Compiler | PyPI `ziglang` (clang + lld) | Cross-compiles AArch64 from x86-64 |
+| bionic headers | `github.com/gubaojian/sysroot` | Real `libc`, `jni.h`, `android/log.h` |
+| Kernel uapi headers | Zig's bundled libc | `asm/`, `linux/`, missing from that sysroot |
+| C++ runtime | `libc++_shared.so` (undefined at link) | Matches the NDK's `c++_shared`; resolves from the game's own copy |
+
+Four details cost real debugging time and are worth keeping:
+
+1. **Compile as `aarch64-linux-android`, but link as `aarch64-linux-gnu`.**
+   Compiling with the android target defines `__ANDROID__`, which makes bionic's
+   headers declare `stat`/`sscanf` instead of glibc's `__xstat`/
+   `__isoc99_sscanf`. Those two symbols do not exist on Android and a single
+   unresolved one makes the loader reject the whole library. Zig 0.17 cannot
+   *link* for the android target without bionic stub libraries, hence the split.
+2. **Do not link a private libc++.** Zig's own `libc++.a` is built against
+   glibc headers and reintroduces exactly those imports. Leaving the `std::`
+   symbols undefined against `libc++_shared.so` is both smaller (50 KB vs 8 MB)
+   and correct.
+3. **The Preloader headers include `<fmt/format.h>`.** A native mod does not
+   link fmt, so `levipack/src/fmt_shim/fmt/format.h` provides declarations only
+   (never definitions) and is placed first on the include path.
+4. **`nm -D` is not enough.** A linker can emit a hash table that omits
+   symbols, so `tools/verify_so.py` walks the GNU hash the way `dlsym` does
+   before a build is accepted.
+
+The result still needs a device test: this path proves the ELF is well formed
+and resolvable, not that the Mod Menu renders.
