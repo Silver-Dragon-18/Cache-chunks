@@ -62,13 +62,18 @@ export class HudController {
       return;
     }
 
-    const owner = players.find((player) => this.getSource(player));
-    if (!owner) {
+    // The HUD overlay is a single device-local surface, so it follows one
+    // player. On a phone (the LeviLauncher case) that is the only player; on a
+    // world with several, showing someone else's coordinates would be worse
+    // than showing nothing, so the frame is only drawn for the first player and
+    // cleared otherwise.
+    const owner = players[0];
+    const source = owner ? this.getSource(owner) : undefined;
+    if (!owner || !source) {
       if (this.overlayActive) this.clearOverlay();
       return;
     }
 
-    const source = this.getSource(owner);
     const layout = buildLayout({ source, playerLocation: owner.location, settings: cfg });
     if (!layout.visible) {
       if (this.overlayActive) this.clearOverlay();
