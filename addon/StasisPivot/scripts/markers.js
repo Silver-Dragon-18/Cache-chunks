@@ -64,13 +64,14 @@ export function burst(player, source) {
  */
 export class WaypointMarker {
   constructor() {
-    this.waypoint = undefined;
-    this.key = undefined;
+    /** One waypoint per player: each player tracks their own source. */
+    /** @type {Map<string, {waypoint: import("@minecraft/server").LocationWaypoint, key: string}>} */
+    this.entries = new Map();
   }
 
   sync(player, source) {
     if (!get("enabled") || !get("waypoint_enabled")) {
-      this.clear();
+      this.clearFor(player);
       return;
     }
 
@@ -84,12 +85,15 @@ export class WaypointMarker {
       z: source.z + 0.5,
     };
 
-    if (this.waypoint && this.key === key) {
-      safe(() => this.waypoint.setDimensionLocation(location));
+    const entry = this.entries.get(player.id);
+    // Reuse the waypoint while it is valid and unchanged: creating one every
+    // tick would churn the locator bar.
+    if (entry && entry.key === key && entry.waypoint.isValid) {
+      safe(() => entry.waypoint.setDimensionLocation(location));
       return;
     }
 
-    this.clear();
+    this.clearFor(player);
     try {
       const waypoint = new LocationWaypoint(
         location,
@@ -104,19 +108,29 @@ export class WaypointMarker {
         rgbOf(color),
       );
       player.locatorBar.addWaypoint(waypoint);
-      this.waypoint = waypoint;
-      this.key = key;
+      this.entries.set(player.id, { waypoint, key });
     } catch {
-      this.waypoint = undefined;
-      this.key = undefined;
+      this.entries.delete(player.id);
     }
   }
 
+  /** Removes one player's marker (a player walking away from their source). */
+  clearFor(player) {
+    const entry = this.entries.get(player.id);
+    if (!entry) return;
+    this.entries.delete(player.id);
+    safe(() => entry.waypoint.remove());
+  }
+
+  /** Removes every marker, e.g. on world unload. */
   clear() {
-    if (!this.waypoint) return;
-    safe(() => this.waypoint.remove());
-    this.waypoint = undefined;
-    this.key = undefined;
+    for (const entry of this.entries.values()) safe(() => entry.waypoint.remove());
+    this.entries.clear();
+  }
+
+  /** Drops a marker without touching the locator bar of a player who left. */
+  forget(playerId) {
+    this.entries.delete(playerId);
   }
 }
 

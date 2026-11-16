@@ -166,11 +166,14 @@ world.afterEvents.playerSpawn.subscribe((event) => {
 
 world.afterEvents.playerDimensionChange?.subscribe((event) => {
   hud.lastSignature = "";
-  waypoint.clear();
+  // Only this player's marker is stale: a shared clear() would drop the
+  // markers of everyone else standing near their own source.
+  waypoint.clearFor(event.player);
   pivots.save();
 });
 
-world.afterEvents.playerLeave.subscribe(() => {
+world.afterEvents.playerLeave.subscribe((event) => {
+  waypoint.forget(event.playerId);
   pivots.save();
 });
 
@@ -196,7 +199,7 @@ system.runInterval(() => {
   for (const player of players) {
     const source = pivots.getActive(player);
     if (!source) {
-      waypoint.clear();
+      waypoint.clearFor(player);
       continue;
     }
     drawBeam(player, source);
