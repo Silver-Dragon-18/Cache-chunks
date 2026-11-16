@@ -144,7 +144,8 @@ Then install: LeviLauncher → Mods → Add Mod → pick the `.levipack`.
 ## Using it
 
 1. Craft or grab **Stasis Pivot** (Creative → Items) or run `/give @s stasispivot:pivot`.
-2. **Tap** while holding it (or press your keybind / run `/stasispivot set`):
+2. **Tap** while holding it (a short press, without dragging the screen — or
+   press your keybind / run `/stasispivot set`):
    the source block becomes the block under your feet, and `X Y Z` in the panel
    is that block — it *is* the `0 0 0` of the measurement, so `dX dY dZ` is
    always your offset from it and `S` is the distance.
@@ -252,15 +253,37 @@ rather than showing up on a phone.
 
 ---
 
+## How this was tested on a host
+
+The pack is not only typechecked: `tests/mock/` contains a recording
+stand-in for `@minecraft/server` and `@minecraft/server-ui`, and a Node
+resolve hook maps the real import names onto it. `tests/behaviour_test.mjs`
+then loads the **unmodified** `addon/StasisPivot/scripts/main.js` and drives it
+the way the engine does — fire `startup`, spawn a player, use the item, release
+it, advance the tick loop — asserting on what the pack recorded: the registered
+item component and commands, the chat line, the panel text, the particles, the
+waypoint, and the stored dynamic properties.
+
+That harness is how the gesture bugs below were found, because the mock refuses
+to be lenient: a missing event is a missing event.
+
+```bash
+node tests/behaviour_test.mjs      # 29 behaviour tests
+scripts/check.sh                   # everything: scripts, behaviour, native
+```
+
 ## Limits worth knowing
 
 * **Bedrock cannot draw rectangles in normal text.** On a vanilla client the
   outline is drawn with box-drawing characters and § colours; the true
   rounded/alpha outline is the Levi overlay renderer in the companion mod.
-* **Touch "tap" detection.** The script API does not expose camera deltas, so a
-  tap is accepted when the item's use completes (`onUse` → `onCompleteUse`).
-  Dragging the camera mid-press cancels the completion, which is the intended
-  "look, don't place" behaviour.
+* **Touch "tap" detection.** A custom component sees no input events, and
+  `onUse` fires for the touch that drags the camera as well, so the pack
+  brackets the gesture itself: `onUse` records the tick, the position and the
+  view, and `itemStopUse` accepts it only if it lasted at most 12 ticks, the
+  player stayed within 0.35 blocks, the camera turned no more than 12°, and the
+  release did not land on a block or a mob. Dragging to look around is
+  therefore a look, not a placement — the "look, don't place" behaviour.
 * **Keybind reach.** `playerButtonInput` reports `Jump` and `Sneak` only; a
   general "press key K" binding needs the native companion's Keybind control.
   The script-level bind is the part that works on a stock client.

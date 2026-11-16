@@ -28,6 +28,9 @@ Both dependencies were verified against the published typings
 | --- | --- | --- |
 | `system.beforeEvents.startup` (`itemComponentRegistry`, `customCommandRegistry`) | 1.21.60+ (2.1.0) | item behaviour, `/stasispivot:*` commands |
 | `minecraft:custom_components` on items | 1.21.60 | the tap hook |
+| `world.afterEvents.itemStopUse` | 2.0.0 | release half of the tap gesture |
+| `Entity.getRotation` | 1.19+ | tells a tap from a camera drag |
+| `minecraft:use_modifiers`, `minecraft:interact_button` (item JSON) | 1.20.50 / 1.20.30 | makes the item *useable*: without a use duration no use starts, so no use event ever fires |
 | `LocationWaypoint` + `player.locatorBar` | 2.8.0 (1.26.21) | the locator-bar pin |
 | `Player.onScreenDisplay.setActionBar` | 1.20+ | the panel transport |
 | `player.playSound`, `dimension.spawnParticle` | 1.20+ | feedback |

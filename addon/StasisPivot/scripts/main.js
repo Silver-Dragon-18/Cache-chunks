@@ -32,6 +32,36 @@ const waypoint = new WaypointMarker();
 const hud = new HudController((player) => pivots.getActive(player));
 pivots.attachHud(hud);
 
+/**
+ * Gestures that ended on a block or an entity.
+ *
+ * `onUseOn` (a block) and `onHitEntity` (a mob) are the component's own "use"
+ * callbacks, so seeing one means the release in `itemStopUse` is not a tap.
+ * The release event's `itemStack` is the pivot itself and says nothing about
+ * what was targeted.
+ */
+const blockUses = new Map();
+
+/**
+ * How long a block use may excuse a release.
+ *
+ * A block use does not always produce an `itemStopUse`, so the flag has to
+ * expire: left standing, it would silently swallow the player's next real tap.
+ */
+const BLOCK_USE_TICKS = 20;
+
+function markBlockUse(player) {
+  if (blockUses.size > 64) blockUses.clear();
+  blockUses.set(player.id, system.currentTick);
+}
+
+/** Reads and forgets the flag, so one block use excuses exactly one release. */
+function tookBlockUse(player) {
+  const at = blockUses.get(player.id);
+  blockUses.delete(player.id);
+  return at !== undefined && system.currentTick - at <= BLOCK_USE_TICKS;
+}
+
 // ---------------------------------------------------------------------------
 // Startup registries
 // ---------------------------------------------------------------------------
@@ -39,20 +69,35 @@ pivots.attachHud(hud);
 system.beforeEvents.startup.subscribe((event) => {
   try {
     event.itemComponentRegistry.registerCustomComponent(COMPONENT_ID, {
+      // A custom component sees no input events, and `onUse` fires whenever the
+      // player uses the item -- including the touch that drags the camera. The
+      // gesture is therefore bracketed here (press) and in `itemStopUse`
+      // (release), and judged on how long it took, whether the player moved,
+      // whether the camera turned, and whether it ended on a block.
       onUse(componentEvent) {
         const player = componentEvent.source;
         if (!(player instanceof Player)) return;
-        pivots.markTap(player);
-        pivots.trigger(player, "Tapped");
+        pivots.beginHold(player);
       },
-      onCompleteUse(componentEvent) {
+      // Only reached when the use ended on a block or a mob, which is exactly
+      // the case that must not move the pivot.
+      onUseOn(componentEvent) {
         const player = componentEvent.source;
-        if (!(player instanceof Player)) return;
-        // Hold-to-use taps are already handled by onUse; a completed use with
-        // no matching tap is a deliberate second gesture.
-        if (pivots.consumeTap(player)) return;
-        pivots.trigger(player, "Tapped");
+        if (player instanceof Player) markBlockUse(player);
       },
+      onHitEntity(componentEvent) {
+        const source = componentEvent.attackingEntity;
+        if (source instanceof Player) markBlockUse(source);
+      },
+    });
+
+    // Registered alongside the component: these are world events, not component
+    // callbacks, so they see the hold timing the component cannot.
+    world.afterEvents.itemStopUse?.subscribe((event) => {
+      const player = event.source;
+      if (!(player instanceof Player)) return;
+      if (!pivots.endHold(player, { usedBlock: tookBlockUse(player) })) return;
+      pivots.trigger(player, "Tapped");
     });
   } catch {
     // A duplicate registration after a script reload is harmless.
@@ -174,7 +219,9 @@ world.afterEvents.playerDimensionChange?.subscribe((event) => {
 
 world.afterEvents.playerLeave.subscribe((event) => {
   waypoint.forget(event.playerId);
-  pivots.save();
+  // Keeps the stored copy (so the pivot is there on rejoin) but drops the live
+  // entry, which would otherwise be re-published forever by save().
+  pivots.forget(event.playerId);
 });
 
 // ---------------------------------------------------------------------------

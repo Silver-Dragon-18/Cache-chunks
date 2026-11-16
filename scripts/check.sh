@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs every check in this repository:
 #   * host unit tests for the script pack's maths/layout (node)
+#   * behaviour tests that execute the pack against a recording mock engine
 #   * pack validation + packaging (python)
 #   * host compile check of the native companion mod (g++)
 #   * host unit tests of the companion's overlay JSON reader
@@ -16,6 +17,10 @@ fi
 
 echo "== script pack tests =="
 node tests/layout_test.mjs
+
+echo
+echo "== behaviour tests (the pack runs against a mock engine) =="
+node tests/behaviour_test.mjs
 
 echo
 echo "== pack validation and packaging =="
