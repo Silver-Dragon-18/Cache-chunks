@@ -11,6 +11,7 @@ import { world } from "@minecraft/server";
 import {
   DEFAULTS,
   COLOR_KEYS,
+  KEYBIND_BUTTONS,
   NUMBER_LIMITS,
   WAYPOINT_TEXTURES,
   menuEntry,
@@ -59,6 +60,12 @@ function coerce(key, value, fallback) {
   if (COLOR_KEYS.includes(key)) return normalizeColor(value, fallback);
   if (key === "waypoint_texture") {
     const match = WAYPOINT_TEXTURES.find((texture) => texture.value === value);
+    return match ? match.value : fallback;
+  }
+  if (key === "keybind_button") {
+    // Accept the enum name in any case so a Mod Menu text field round-trips.
+    const wanted = typeof value === "string" ? value.trim().toLowerCase() : "";
+    const match = KEYBIND_BUTTONS.find((button) => button.value.toLowerCase() === wanted);
     return match ? match.value : fallback;
   }
   if (typeof fallback === "boolean") {

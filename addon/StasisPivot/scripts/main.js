@@ -22,6 +22,7 @@ import { PivotManager } from "./pivot.js";
 import { WaypointMarker, drawBeam } from "./markers.js";
 import { openMainMenu } from "./menu.js";
 import { bindOverlay, levi, pollTrigger } from "./levi.js";
+import { installKeybind } from "./keybind.js";
 
 const COMPONENT_ID = "stasispivot:on_use_pivot";
 const TICK_INTERVAL = 4; // 5 Hz: plenty for coordinates, cheap on a phone
@@ -139,6 +140,14 @@ world.afterEvents.worldLoad.subscribe(() => {
   pivots.load();
 });
 
+// Settings must exist before the keybind reads them, so install it once the
+// world (and with it the dynamic properties) is available. `system.run` also
+// keeps the listener out of the early-execution phase.
+system.run(() => {
+  loadSettings();
+  installKeybind(pivots);
+});
+
 world.afterEvents.playerSpawn.subscribe((event) => {
   loadSettings();
   if (event.initialSpawn) {
@@ -178,7 +187,7 @@ system.runInterval(() => {
 
   // The native companion buffers a keybind press as a flag file; forward it
   // through the same path as a tap so both entry points behave identically.
-  if (pollTrigger()) {
+  if (get("keybind_enabled") && pollTrigger()) {
     for (const player of players) {
       if (get("enabled")) safe(() => pivots.trigger(player, "keybind"));
     }

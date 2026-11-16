@@ -36,7 +36,14 @@ import {
   toActionBar,
   toOverlayCommands,
 } from "../addon/StasisPivot/scripts/layout.js";
-import { DEFAULTS, MENU, MENU_KEYS, COLOR_KEYS } from "../addon/StasisPivot/scripts/config.js";
+import {
+  DEFAULTS,
+  MENU,
+  MENU_KEYS,
+  COLOR_KEYS,
+  KEYBIND_BUTTONS,
+  WAYPOINT_TEXTURES,
+} from "../addon/StasisPivot/scripts/config.js";
 
 let passed = 0;
 const failures = [];
@@ -269,6 +276,31 @@ test("menu ids are unique", () => {
     assert.ok(!ids.has(category.id), `duplicate category ${category.id}`);
     ids.add(category.id);
   }
+});
+
+test("choice entries offer values that exist in their source list", () => {
+  const lists = {
+    waypoint_texture: WAYPOINT_TEXTURES.map((texture) => texture.value),
+    keybind_button: KEYBIND_BUTTONS.map((button) => button.value),
+  };
+  for (const entry of MENU_KEYS) {
+    if (entry.type !== "choice") continue;
+    const known = lists[entry.key];
+    assert.ok(known, `${entry.key} has no known value list`);
+    assert.ok(entry.choices.length > 0, `${entry.key} has no choices`);
+    for (const choice of entry.choices) {
+      assert.ok(known.includes(choice.value), `${entry.key}: ${choice.value} is unknown`);
+    }
+    assert.ok(known.includes(DEFAULTS[entry.key]), `${entry.key} default is not a choice`);
+  }
+});
+
+test("the keybind defaults to off and to a button Bedrock reports", () => {
+  assert.equal(DEFAULTS.keybind_enabled, false);
+  const values = KEYBIND_BUTTONS.map((button) => button.value);
+  assert.ok(values.includes(DEFAULTS.keybind_button), "default button is not bindable");
+  // InputButton in @minecraft/server 2.10.0 has exactly these two members.
+  assert.deepEqual([...values].sort(), ["Jump", "Sneak"]);
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

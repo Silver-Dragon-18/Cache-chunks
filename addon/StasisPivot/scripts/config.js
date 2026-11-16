@@ -8,7 +8,7 @@
  */
 
 // Human readable in-game name of the item that mirrors the Levi on-screen
-// keybind. Keep in sync with addon/StasisPivot/bp/items/stasis_pivot.json.
+// keybind. Keep in sync with addon/StasisPivot/items/stasis_pivot.json.
 export const ITEM_ID = "stasispivot:pivot";
 
 /** Every manageable setting, its type and default. */
@@ -58,7 +58,12 @@ export const DEFAULTS = Object.freeze({
   chat_feedback: true,
   tap_sound: true,
 
-  // Optional keybind (Android key code captured from LeviLauncher Mod Menu).
+  // Optional keybind. Two independent paths:
+  //   - the script-level button bind below, available on every client;
+  //   - the Levi Mod Menu `Keybind` control (keybind_keycode), forwarded by the
+  //     native companion when one is installed.
+  keybind_enabled: false,
+  keybind_button: "Sneak",
   keybind_keycode: 0,
 });
 
@@ -122,6 +127,12 @@ export const NUMBER_LIMITS = Object.freeze({
   hud_corner_radius: { min: 0, max: 16 },
   keybind_keycode: { min: 0, max: 1000 },
 });
+
+/** Buttons Bedrock scripting can observe (InputButton members). */
+export const KEYBIND_BUTTONS = Object.freeze([
+  { value: "Sneak", name: "Sneak / Shift" },
+  { value: "Jump", name: "Jump" },
+]);
 
 /**
  * The same menu tree is rendered in game (ActionFormData) and dumped as a
@@ -199,7 +210,20 @@ export const MENU = Object.freeze([
     title: "Keybind",
     description: "Optional hardware key",
     entries: [
-      { type: "slider", key: "keybind_keycode", title: "Android key code", description: "0 disables. Set the same value in the Levi Mod Menu Keybind control to bind a keyboard key.", min: 0, max: 1000, step: 1 },
+      {
+        type: "toggle",
+        key: "keybind_enabled",
+        title: "Enable button bind",
+        description: "Press and release the bound button without moving to set the source. Works on every client.",
+      },
+      {
+        type: "choice",
+        key: "keybind_button",
+        title: "Bound button",
+        description: "Sneak is Shift on a keyboard. Jump is the jump key or button.",
+        choices: KEYBIND_BUTTONS.map((button) => ({ value: button.value, label: button.name })),
+      },
+      { type: "slider", key: "keybind_keycode", title: "Android key code", description: "0 disables. Set the same value in the Levi Mod Menu Keybind control to bind a hardware key through the native companion.", min: 0, max: 1000, step: 1 },
     ],
   },
 ]);

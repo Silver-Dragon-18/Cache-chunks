@@ -34,6 +34,20 @@ Tap the item, press the keybind, run `/stasispivot set`, or use
 **Mod Menu → Stasis Pivot → Set source here** — all four paths place the source
 and the panel appears immediately.
 
+### The optional keybind
+
+Bedrock scripting only reports two input buttons, so the script-level keybind
+uses one of those rather than pretending to capture arbitrary keys:
+
+* **Sneak / Shift** (default) or **Jump** — enable it at *Keybind → Enable
+  button bind*, pick the button, then press **and release** it without moving.
+* The gesture is strict on purpose: releasing after 600 ms, or moving more than
+  0.35 blocks while holding, cancels it, so walking/sprinting/jumping normally
+  never places a source.
+* If you have the native companion, its *Keybind* control captures a real
+  Android key code instead; set the same number in *Keybind → Android key code*
+  so the pack picks the press up too.
+
 ---
 
 ## Install
@@ -143,7 +157,7 @@ world's dynamic properties):
 | Panel | `hud_enabled`, `hud_always`, `hud_max_distance`, `hud_scale`, `hud_offset_x`, `hud_offset_y`, `hud_show_header`, `hud_show_distance`, `hud_show_delta`, `hud_outline_width`, `hud_corner_radius`, `hud_actionbar`, `hud_actionbar_stacked` |
 | Colours | `hud_outline_color`, `hud_outline_alpha`, `hud_bg_color`, `hud_bg_alpha`, `hud_color_x`, `hud_color_y`, `hud_color_z`, `hud_color_s`, `hud_color_delta`, `hud_color_text`, `hud_color_header` |
 | World | `beam_enabled`, `waypoint_enabled`, `waypoint_color`, `waypoint_texture`, `chat_feedback`, `tap_sound` |
-| Keybind | `keybind_keycode` (Android key code, `0` = none) |
+| Keybind | `keybind_enabled`, `keybind_button` (`Sneak`/`Jump`), `keybind_keycode` (Android key code, `0` = none) |
 
 Colours are stored as `#RRGGBB`, the same format the Levi colour controls and
 the in-game hex field use. The panel's §-code fallback is picked automatically
@@ -213,6 +227,9 @@ testable and keeps them from drifting.
   tap is accepted when the item's use completes (`onUse` → `onCompleteUse`).
   Dragging the camera mid-press cancels the completion, which is the intended
   "look, don't place" behaviour.
+* **Keybind reach.** `playerButtonInput` reports `Jump` and `Sneak` only; a
+  general "press key K" binding needs the native companion's Keybind control.
+  The script-level bind is the part that works on a stock client.
 * **No blocks are placed.** The source is virtual: nothing is written to the
   world, so it cannot be lost, griefed or left behind.
 * **One pivot per player per dimension** while "Per-dimension source" is on.

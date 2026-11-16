@@ -44,9 +44,11 @@ without the "Beta APIs" experiment on a 1.26.60 client.
   renders *in the world*, not as a screen UI element. The coordinate panel needs
   screen-anchored, per-player text, so the action bar + Levi HUD overlay path is
   used instead.
-* **`player.playerButtonInput`**: only exposes `Jump` and `Sneak`, and `Sneak`
-  is reported as a one-tick pulse on touch, which makes it unusable as a
-  "keybind" that a player can hold.
+* **`player.playerButtonInput` for arbitrary keys**: the event exists in 2.10.0
+  and is *used* (see `scripts/keybind.js`), but `InputButton` has exactly two
+  members, `Jump` and `Sneak`. On touch, `Sneak` is released after one tick, so
+  the bind is judged by press-to-release timing and movement rather than by
+  holding it. A real "any key" binding stays a native (companion) feature.
 
 ## LeviLauncher package format
 

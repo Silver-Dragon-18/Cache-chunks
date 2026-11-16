@@ -7,7 +7,7 @@
  */
 
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { MENU, PALETTE, WAYPOINT_TEXTURES } from "./config.js";
+import { MENU, PALETTE } from "./config.js";
 import { get, set, resetAll, limitsFor } from "./settings.js";
 import { compactPivot, formatDecimal, offsetFrom, straightLine } from "./geom.js";
 import { colorize } from "./colors.js";
@@ -28,9 +28,9 @@ function formatValue(entry) {
   const value = get(entry.key);
   if (typeof value === "boolean") return onOff(value);
   if (entry.key === "keybind_keycode") return value ? `§e${value}` : "§7none";
-  if (entry.key === "waypoint_texture") {
-    const match = WAYPOINT_TEXTURES.find((texture) => texture.value === value);
-    return `§e${match ? match.name : value}`;
+  if (entry.type === "choice") {
+    const match = (entry.choices ?? []).find((choice) => choice.value === value);
+    return `§e${match ? match.label : value}`;
   }
   if (typeof value === "number") {
     const digits = Number.isInteger(entry.step ?? 1) ? 0 : 2;
@@ -125,9 +125,13 @@ async function openEntry(player, pivots, categoryId, entry) {
   if (entry.type === "color") {
     return openColor(player, pivots, categoryId, entry);
   }
-  if (entry.key === "waypoint_texture") {
-    const index = Math.max(0, WAYPOINT_TEXTURES.findIndex((texture) => texture.value === get(entry.key)));
-    set(entry.key, WAYPOINT_TEXTURES[(index + 1) % WAYPOINT_TEXTURES.length].value);
+  if (entry.type === "choice") {
+    // Action forms have no dropdown: tapping the row cycles through the values,
+    // which keeps the menu usable on touch without a second screen.
+    const choices = entry.choices ?? [];
+    if (choices.length === 0) return openCategory(player, pivots, categoryId);
+    const index = Math.max(0, choices.findIndex((choice) => choice.value === get(entry.key)));
+    set(entry.key, choices[(index + 1) % choices.length].value);
     return openCategory(player, pivots, categoryId);
   }
 

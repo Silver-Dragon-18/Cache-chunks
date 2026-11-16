@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 import uuid
 import zipfile
@@ -141,6 +142,19 @@ def check_script_imports() -> None:
         for match in re.finditer(r'from\s+"(@minecraft/[^"]+)"', source):
             if match.group(1) not in ("@minecraft/server", "@minecraft/server-ui"):
                 fail(f"{path.name} imports unsupported module {match.group(1)}")
+        # A syntax slip in a script only shows up in game, so let node parse
+        # every file here as well.
+        try:
+            subprocess.run(
+                ["node", "--input-type=module", "--check"],
+                input=source.encode("utf-8"),
+                check=True,
+                capture_output=True,
+            )
+        except FileNotFoundError:
+            pass
+        except subprocess.CalledProcessError as error:
+            fail(f"{path.name} does not parse: {error.stderr.decode('utf-8', 'replace').strip()}")
 
 
 def check_items() -> None:
