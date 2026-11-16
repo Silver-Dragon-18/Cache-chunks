@@ -1,0 +1,21 @@
+{
+  "format_version": 3,
+  "header": {
+    "name": "pack.stasispivotrp.name",
+    "description": "pack.stasispivotrp.description",
+    "uuid": "da188635-962b-4341-ad61-c4d3ab6dc855",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.60"
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "ce099a84-144e-49d7-b295-2b00f5311f2b",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": ["arena/6c7755de"],
+    "product_type": "addon"
+  }
+}

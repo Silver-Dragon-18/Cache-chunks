@@ -1,0 +1,18 @@
+# Build output
+dist/
+build/
+build-*/
+out/
+*.levipack
+*.so
+*.o
+
+# Tooling caches
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+
+# Vendored SDK checkout metadata (headers are committed on purpose)
+vendor/preloader-android/.git/
